@@ -190,7 +190,7 @@ def put_to_cache(key: str, data: bytes, filename: str = None):
     try:
         headers = {}
         if filename:
-            headers["X-Filename"] = filename
+            headers["X-Filename"] = filename.encode("ascii", errors="ignore").decode("ascii")
         resp = requests.put(f"{CACHE_API_URL}/cache/{key}", data=data, headers=headers, timeout=10)
         if resp.status_code != 200:
             log.warning("Cache PUT returned %d: %s", resp.status_code, resp.text[:200])
