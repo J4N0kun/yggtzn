@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from urllib.parse import quote
+from unicodedata import normalize
 
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import PlainTextResponse
@@ -13,6 +14,11 @@ from torrent_cache import (
     is_cache_available, get_from_cache, put_to_cache,
     make_cache_key, inject_passkey, strip_passkey, filename_from_url,
 )
+
+def _safe_filename(name: str) -> str:
+    name = normalize("NFKC", name)
+    return name.encode("ascii", errors="ignore").decode("ascii")
+
 
 logging.basicConfig(level=logging.DEBUG if DEBUG else logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -140,7 +146,7 @@ def download_torrent(
                 cached_data, cached_filename = cached
                 log.info("Cache HIT for %s", url)
                 torrent_data = inject_passkey(cached_data, browser.passkey)
-                fname = cached_filename or filename_from_url(url)
+                fname = _safe_filename(cached_filename or filename_from_url(url))
                 return Response(
                     content=torrent_data,
                     media_type="application/x-bittorrent",
@@ -162,7 +168,7 @@ def download_torrent(
             return Response(
                 content=torrent_data,
                 media_type="application/x-bittorrent",
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                headers={"Content-Disposition": f'attachment; filename="{_safe_filename(filename)}"'},
             )
     except Exception as e:
         log.warning("Cache logic error, falling back to direct download: %s", e)
@@ -174,7 +180,7 @@ def download_torrent(
     return Response(
         content=torrent_data,
         media_type="application/x-bittorrent",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{_safe_filename(filename)}"'},
     )
 
 
